@@ -1,11 +1,7 @@
 """
-Med-GPT RAG System — ChatGPT-Style UI (STABLE)
-=============================================
-✔ Single input (st.chat_input)
-✔ Conversation history
-✔ No duplicate rendering
-✔ Immediate answer display
-✔ RAG + confidence + sources
+Med-GPT Professional Medical AI Platform
+=========================================
+Production-ready medical decision support interface
 """
 
 import streamlit as st
@@ -19,73 +15,303 @@ from ui_metrics import (
     get_coverage_badge,
 )
 
-# ------------------------------------------------------------------------------
-# PAGE CONFIG (MUST BE FIRST)
-# ------------------------------------------------------------------------------
-st.set_page_config(page_title="Med-GPT RAG System", page_icon="🏥", layout="wide")
+# ==============================================================================
+# PAGE CONFIGURATION
+# ==============================================================================
+st.set_page_config(
+    page_title="Med-GPT | Medical AI Assistant",
+    page_icon="🏥",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-# ------------------------------------------------------------------------------
-# CUSTOM CSS FOR TEXT SELECTION
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# PROFESSIONAL MEDICAL THEME STYLING
+# ==============================================================================
 st.markdown(
     """
 <style>
-    /* Custom text selection styling for evidence blocks */
-    .evidence-text::selection {
-        background-color: rgba(200, 200, 200, 0.3);  /* Subtle gray */
-        color: inherit;  /* Keep original text color */
+    /* ========== GLOBAL THEME ========== */
+    :root {
+        --primary-bg: #0a1929;
+        --secondary-bg: #132f4c;
+        --card-bg: #1a2332;
+        --accent-teal: #00bfa5;
+        --accent-blue: #2196f3;
+        --text-primary: #e3f2fd;
+        --text-secondary: #90caf9;
+        --border-color: #263238;
+        --success: #00e676;
+        --warning: #ffd54f;
+        --error: #ff5252;
     }
     
-    .evidence-text::-moz-selection {
-        background-color: rgba(200, 200, 200, 0.3);  /* Firefox support */
-        color: inherit;
-    }
-    
-    /* Override Streamlit's default mark tag styling in evidence containers */
-    .evidence-container mark,
-    .evidence-text mark {
-        background-color: transparent;
-        color: inherit;
+    /* ========== MAIN CONTAINER ========== */
+    .main {
+        background: linear-gradient(135deg, #0a1929 0%, #132f4c 100%);
         padding: 0;
     }
     
-    /* Style for the evidence container */
-    .evidence-container {
-        padding: 8px;
-        margin: 6px 0;
-        border-left: 3px solid #555;
-        background-color: transparent;
+    /* ========== HEADER BAR ========== */
+    .header-container {
+        background: linear-gradient(90deg, #1a2332 0%, #263238 100%);
+        border-bottom: 2px solid var(--accent-teal);
+        padding: 1.5rem 2rem;
+        margin: -1rem -1rem 2rem -1rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    .header-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+        letter-spacing: -0.5px;
+    }
+    
+    .header-subtitle {
+        font-size: 0.95rem;
+        color: var(--text-secondary);
+        margin: 0.25rem 0 0 0;
+        font-weight: 400;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 0.35rem 0.9rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-left: 1rem;
+    }
+    
+    .status-online {
+        background: rgba(0, 230, 118, 0.15);
+        color: var(--success);
+        border: 1px solid var(--success);
+    }
+    
+    .model-badge {
+        display: inline-block;
+        padding: 0.35rem 0.9rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: rgba(33, 150, 243, 0.15);
+        color: var(--accent-blue);
+        border: 1px solid var(--accent-blue);
+        margin-left: 0.5rem;
+    }
+    
+    /* ========== ANSWER CARD ========== */
+    .answer-card {
+        background: var(--card-bg);
+        border-radius: 16px;
+        padding: 2rem;
+        margin: 1.5rem 0;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        border: 1px solid var(--border-color);
+    }
+    
+    .question-header {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 1rem;
+    }
+    
+    .answer-text {
+        font-size: 1.15rem;
+        line-height: 1.8;
+        color: var(--text-primary);
+        margin: 1rem 0 1.5rem 0;
+    }
+    
+    /* ========== METRICS STRIP ========== */
+    .metric-card {
+        background: linear-gradient(135deg, #1a2332 0%, #263238 100%);
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+        border: 1px solid var(--border-color);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 191, 165, 0.2);
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent-teal);
+        margin: 0.5rem 0;
+    }
+    
+    .metric-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+    
+    .metric-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+    }
+    
+    .badge-high {
+        background: rgba(0, 230, 118, 0.2);
+        color: var(--success);
+    }
+    
+    .badge-moderate {
+        background: rgba(255, 213, 79, 0.2);
+        color: var(--warning);
+    }
+    
+    .badge-low {
+        background: rgba(255, 82, 82, 0.2);
+        color: var(--error);
+    }
+    
+    /* ========== EVIDENCE PANEL ========== */
+    .evidence-panel {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-left: 4px solid var(--accent-teal);
+        border: 1px solid var(--border-color);
+    }
+    
+    .evidence-header {
+        font-size: 1rem;
+        color: var(--accent-teal);
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    
+    .evidence-chunk {
+        background: rgba(0, 191, 165, 0.05);
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.75rem 0;
+        border-left: 3px solid var(--accent-teal);
+    }
+    
+    /* ========== COMPARISON PANEL ========== */
+    .comparison-card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        border: 1px solid var(--border-color);
+    }
+    
+    .model-result-header {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .best-model-glow {
+        box-shadow: 0 0 20px rgba(0, 230, 118, 0.3);
+        border: 2px solid var(--success);
+    }
+    
+    /* ========== INPUT BAR ========== */
+    .stChatInput {
+        border-radius: 24px !important;
+        border: 2px solid var(--border-color) !important;
+        background: var(--card-bg) !important;
+    }
+    
+    .stChatInput:focus-within {
+        border-color: var(--accent-teal) !important;
+        box-shadow: 0 0 0 3px rgba(0, 191, 165, 0.1) !important;
+    }
+    
+    /* ========== BUTTONS ========== */
+    .stButton > button {
+        background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-blue) 100%);
+        color: white;
+        border: none;
+        border-radius: 24px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 191, 165, 0.4);
+    }
+    
+    /* ========== SIDEBAR ========== */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1a2332 0%, #0a1929 100%);
+        border-right: 1px solid var(--border-color);
+    }
+    
+    /* ========== PROGRESS BAR ========== */
+    .stProgress > div > div {
+        background: linear-gradient(90deg, var(--accent-teal) 0%, var(--accent-blue) 100%);
+        border-radius: 10px;
+    }
+    
+    /* ========== EXPANDER ========== */
+    .streamlit-expanderHeader {
+        background: var(--card-bg);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+    
+    /* ========== SPACING ========== */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 4rem;
     }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-# ------------------------------------------------------------------------------
-# SESSION STATE (SINGLE SOURCE OF TRUTH)
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# SESSION STATE INITIALIZATION
+# ==============================================================================
 if "initialized" not in st.session_state:
     st.session_state.initialized = False
     st.session_state.model = None
     st.session_state.collection = None
     st.session_state.messages = []
-    st.session_state.processing = False  # 🔥 prevents double execution
-    st.session_state.selected_model = "phi"  # Default model
-    st.session_state.compare_mode = False  # Multi-model comparison mode
+    st.session_state.processing = False
+    st.session_state.selected_model = "phi"
+    st.session_state.compare_mode = False
 
 
-# ------------------------------------------------------------------------------
-# LOAD RAG SYSTEM (CACHED)
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# BACKEND FUNCTIONS (UNCHANGED)
+# ==============================================================================
 @st.cache_resource
 def load_rag():
+    """Load RAG system components."""
     model = SentenceTransformer("all-MiniLM-L6-v2")
     _, collection = initialize_vector_store()
     return model, collection
 
 
 def get_indexed_documents(collection):
-    """Get list of unique indexed documents from ChromaDB."""
+    """Get list of unique indexed documents."""
     try:
         results = collection.get()
         if results and results["metadatas"]:
@@ -99,294 +325,253 @@ def get_indexed_documents(collection):
         return []
 
 
-def generate_refinement_suggestions(collection, user_query=""):
-    """Generate 2-3 query refinement suggestions based on user query keywords."""
-
-    # Detect topic keywords from query
-    query_lower = user_query.lower()
-
-    # Medical topic keywords
-    topics = {
-        "malaria": ["malaria", "plasmodium", "antimalarial"],
-        "diabetes": ["diabetes", "glucose", "insulin", "glycemic"],
-        "hypertension": ["hypertension", "blood pressure", "bp"],
-        "tuberculosis": ["tuberculosis", "tb", "mycobacterium"],
-        "hiv": ["hiv", "aids", "antiretroviral"],
-    }
-
-    # Detect query intent
-    intent_keywords = {
-        "treatment": ["treat", "therapy", "medication", "drug", "management"],
-        "diagnosis": ["diagnose", "diagnostic", "test", "criteria", "screening"],
-        "symptoms": ["symptom", "sign", "presentation", "manifestation"],
-        "prevention": ["prevent", "prophylaxis", "vaccination", "immunization"],
-        "complications": ["complication", "adverse", "side effect", "risk"],
-    }
-
-    # Identify topic
-    detected_topic = None
-    for topic, keywords in topics.items():
-        if any(kw in query_lower for kw in keywords):
-            detected_topic = topic
-            break
-
-    # Identify intent
-    detected_intent = None
-    for intent, keywords in intent_keywords.items():
-        if any(kw in query_lower for kw in keywords):
-            detected_intent = intent
-            break
-
-    # Generate contextual suggestions
-    suggestions = []
-
-    if detected_topic:
-        # Topic-specific suggestions
-        if detected_topic == "malaria":
-            suggestions = [
-                "What are the diagnostic criteria for severe malaria?",
-                "What is the recommended treatment for uncomplicated malaria?",
-                "What are the prevention strategies for malaria?",
-            ]
-        elif detected_topic == "diabetes":
-            suggestions = [
-                "What are the diagnostic criteria for type 2 diabetes?",
-                "What are the recommended blood glucose targets?",
-                "What are the complications of uncontrolled diabetes?",
-            ]
-        elif detected_topic == "hypertension":
-            suggestions = [
-                "What are the blood pressure targets for hypertension?",
-                "What is the first-line treatment for hypertension?",
-                "What are the complications of untreated hypertension?",
-            ]
-        elif detected_topic == "tuberculosis":
-            suggestions = [
-                "What is the standard treatment regimen for TB?",
-                "What are the diagnostic tests for tuberculosis?",
-                "What is the duration of TB treatment?",
-            ]
-        elif detected_topic == "hiv":
-            suggestions = [
-                "What is the recommended antiretroviral therapy for HIV?",
-                "What are the WHO criteria for starting ART?",
-                "What are the opportunistic infections in HIV?",
-            ]
-    else:
-        # Generic guideline-focused suggestions
-        suggestions = [
-            "What are the WHO treatment guidelines for this condition?",
-            "What are the diagnostic criteria according to WHO?",
-            "What are the recommended prevention strategies?",
-        ]
-
-    return suggestions[:3]
-
-
-# ------------------------------------------------------------------------------
-# INITIALIZE SYSTEM ONCE
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# INITIALIZE SYSTEM
+# ==============================================================================
 if not st.session_state.initialized:
-    with st.spinner("Loading Med-GPT RAG System..."):
+    with st.spinner("🔄 Initializing Med-GPT system..."):
         model, collection = load_rag()
         st.session_state.model = model
         st.session_state.collection = collection
         st.session_state.initialized = True
 
+# ==============================================================================
+# PROFESSIONAL HEADER BAR
+# ==============================================================================
+st.markdown(
+    f"""
+<div class="header-container">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1 class="header-title">🏥 Med-GPT</h1>
+            <p class="header-subtitle">Evidence-grounded medical assistant powered by WHO guidelines</p>
+        </div>
+        <div>
+            <span class="status-badge status-online">● ONLINE</span>
+            <span class="model-badge">🧠 {st.session_state.selected_model.upper()}</span>
+        </div>
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
-# ------------------------------------------------------------------------------
-# HEADER
-# ------------------------------------------------------------------------------
-st.title("🏥 Med-GPT RAG System")
-st.caption("Ask questions about medical documents and get AI-powered answers.")
-st.markdown("---")
+# ==============================================================================
+# SIDEBAR - MODEL SELECTION & CONTROLS
+# ==============================================================================
+with st.sidebar:
+    st.markdown("### ⚙️ Configuration")
 
-# ------------------------------------------------------------------------------
-# CONVERSATION DISPLAY
-# ------------------------------------------------------------------------------
+    # Model selector
+    available_models = ["phi", "tinyllama", "gemma:2b"]
+    st.session_state.selected_model = st.selectbox(
+        "🧠 Select Model",
+        available_models,
+        index=available_models.index(st.session_state.selected_model),
+        help="Choose the Ollama model for answer generation",
+    )
+
+    st.markdown("---")
+
+    # System info
+    st.markdown("### 📊 System Information")
+    st.info(f"**Embedding Model:** all-MiniLM-L6-v2")
+    st.info(f"**Knowledge Base:** WHO Medical Guidelines")
+    st.info(f"**Retrieval:** Top-7 semantic chunks")
+
+    st.markdown("---")
+
+    # Session controls
+    st.markdown("### 🗂️ Session")
+    message_count = len(st.session_state.messages)
+    st.caption(f"**Messages:** {message_count}")
+
+    if st.button("🧹 Clear Conversation", use_container_width=True):
+        if "confirm_clear" not in st.session_state:
+            st.session_state.confirm_clear = False
+        st.session_state.confirm_clear = True
+
+    if st.session_state.get("confirm_clear", False):
+        st.warning("⚠️ Clear all messages?")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✓ Yes", use_container_width=True):
+                st.session_state.messages = []
+                st.session_state.confirm_clear = False
+                st.rerun()
+        with col2:
+            if st.button("✗ No", use_container_width=True):
+                st.session_state.confirm_clear = False
+                st.rerun()
+
+    st.markdown("---")
+
+    # Footer
+    st.caption(
+        "⚠️ **Disclaimer:** For educational use only. Not a substitute for professional medical advice."
+    )
+
+# ==============================================================================
+# MAIN CONTENT AREA - CONVERSATION DISPLAY
+# ==============================================================================
+
+# Display conversation history
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+    if msg["role"] == "user":
+        # User message
+        st.markdown(
+            f"""
+        <div style="text-align: right; margin: 1rem 0;">
+            <div style="display: inline-block; background: rgba(33, 150, 243, 0.15); 
+                        border-radius: 16px; padding: 0.75rem 1.25rem; max-width: 70%;
+                        border: 1px solid rgba(33, 150, 243, 0.3);">
+                <p style="margin: 0; color: #e3f2fd; font-size: 1rem;">{msg["content"]}</p>
+            </div>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
 
-        if msg["role"] == "assistant" and "meta" in msg:
-            meta = msg["meta"]
+    elif msg["role"] == "assistant":
+        # Assistant message with professional card layout
+        meta = msg.get("meta", {})
 
-            # Confidence visualization (only if confidence is available)
-            if meta.get("confidence") is not None:
-                # Answer Quality Badge (above confidence bar)
-                if meta["confidence"] >= 70:
-                    st.markdown("**Answer Quality:** 🟢 High confidence")
-                elif meta["confidence"] >= 40:
-                    st.markdown("**Answer Quality:** 🟡 Moderate confidence")
-                else:
-                    st.markdown("**Answer Quality:** 🔴 Low confidence")
+        # Main answer card
+        st.markdown(
+            f"""
+        <div class="answer-card">
+            <div class="question-header">📋 Medical Response</div>
+            <div class="answer-text">{msg["content"]}</div>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
 
-                st.markdown(f"**Confidence:** {meta['confidence']}% ℹ️")
-                st.caption(
-                    "_Confidence is based on semantic similarity between the question and retrieved guideline sections. It does not measure clinical certainty._"
+        # Confidence bar
+        if meta.get("confidence") is not None:
+            confidence = meta["confidence"]
+            st.progress(confidence / 100, text=f"Confidence: {confidence}%")
+            st.caption(
+                "_Confidence based on semantic similarity with retrieved guidelines_"
+            )
+
+        # Metrics strip (horizontal cards)
+        if meta.get("sources") and meta.get("user_query"):
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Compute metrics
+            relevance = compute_answer_relevance(
+                meta.get("user_query", ""), msg["content"], st.session_state.model
+            )
+
+            faithfulness = compute_faithfulness(
+                msg["content"], meta["sources"], st.session_state.model
+            )
+
+            coverage = compute_context_coverage(
+                msg["content"], meta["sources"], st.session_state.model
+            )
+
+            # Display metrics in horizontal cards
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                rel_emoji, rel_label, _ = get_quality_badge(relevance)
+                st.markdown(
+                    f"""
+                <div class="metric-card">
+                    <div class="metric-label">🎯 Relevance</div>
+                    <div class="metric-value">{relevance:.2f}</div>
+                    <div class="metric-badge badge-{rel_label.lower()}">{rel_emoji} {rel_label}</div>
+                </div>
+                """,
+                    unsafe_allow_html=True,
                 )
 
-                # Progress bar
-                st.progress(meta["confidence"] / 100)
-
-                # Show query refinement suggestions for low confidence
-                if meta["confidence"] < 40:
-                    st.markdown("---")
-                    st.markdown("💡 **Try asking a more specific question:**")
-
-                    # Pass user query for keyword-based suggestions
-                    user_query = meta.get("user_query", "")
-                    suggestions = generate_refinement_suggestions(
-                        st.session_state.collection, user_query
-                    )
-                    for suggestion in suggestions:
-                        st.markdown(f"• _{suggestion}_")
-            else:
-                # Failed answer generation - show subtle warning
-                st.warning(
-                    "⚠️ Unable to generate a complete answer. Try asking a more specific question."
+            with col2:
+                faith_emoji, faith_label, _ = get_quality_badge(faithfulness)
+                st.markdown(
+                    f"""
+                <div class="metric-card">
+                    <div class="metric-label">✓ Faithfulness</div>
+                    <div class="metric-value">{faithfulness:.2f}</div>
+                    <div class="metric-badge badge-{faith_label.lower()}">{faith_emoji} {faith_label}</div>
+                </div>
+                """,
+                    unsafe_allow_html=True,
                 )
 
-            # Sources (always show if available)
-            if meta.get("sources"):
-                # Show count of retrieved sections
-                num_sources = len(meta["sources"])
-
-                # Answer Quality Metrics (Relevance & Faithfulness & Coverage)
-                if meta.get("user_query") and meta.get("confidence") is not None:
-                    st.markdown("")  # Spacing
-                    st.markdown("**📊 Answer Quality Metrics**")
-
-                    # Compute metrics
-                    relevance = compute_answer_relevance(
-                        meta.get("user_query", ""),
-                        msg["content"],
-                        st.session_state.model,
-                    )
-
-                    faithfulness = compute_faithfulness(
-                        msg["content"], meta["sources"], st.session_state.model
-                    )
-
-                    coverage = compute_context_coverage(
-                        msg["content"], meta["sources"], st.session_state.model
-                    )
-
-                    # Display metrics in 3 columns
-                    col1, col2, col3 = st.columns(3)
-
-                    with col1:
-                        rel_emoji, rel_label, _ = get_quality_badge(relevance)
-                        st.metric(
-                            label="Relevance",
-                            value=f"{relevance:.2f}",
-                            delta=f"{rel_emoji} {rel_label}",
-                        )
-                        st.caption("Question-answer similarity")
-
-                    with col2:
-                        faith_emoji, faith_label, _ = get_quality_badge(faithfulness)
-                        st.metric(
-                            label="Faithfulness",
-                            value=f"{faithfulness:.2f}",
-                            delta=f"{faith_emoji} {faith_label}",
-                        )
-                        st.caption("Answer-context grounding")
-
-                    with col3:
-                        cov_emoji, cov_label, _ = get_coverage_badge(coverage)
-                        st.metric(
-                            label="Coverage",
-                            value=f"{coverage:.2f}",
-                            delta=f"{cov_emoji} {cov_label}",
-                        )
-                        st.caption("Chunks used in answer")
-
-                # "Why this answer?" explanation
-                st.markdown("")  # Spacing
-                st.info(
-                    f"💡 **Why this answer?** This answer is based on {num_sources} WHO guideline section{'s' if num_sources != 1 else ''} retrieved from the knowledge base."
+            with col3:
+                cov_emoji, cov_label, _ = get_coverage_badge(coverage)
+                st.markdown(
+                    f"""
+                <div class="metric-card">
+                    <div class="metric-label">📊 Coverage</div>
+                    <div class="metric-value">{coverage:.2f}</div>
+                    <div class="metric-badge badge-{cov_label.lower()}">{cov_emoji} {cov_label}</div>
+                </div>
+                """,
+                    unsafe_allow_html=True,
                 )
 
-                st.caption(
-                    f"_Retrieved {num_sources} guideline section{'s' if num_sources != 1 else ''}_"
+        # Evidence panel (collapsible)
+        if meta.get("sources"):
+            num_sources = len(meta["sources"])
+
+            with st.expander(
+                f"🔬 Research Evidence ({num_sources} guideline sections)",
+                expanded=False,
+            ):
+                st.markdown(
+                    f"""
+                <div class="evidence-header">
+                    💡 Why this answer? Based on {num_sources} WHO guideline section{'s' if num_sources != 1 else ''}
+                </div>
+                """,
+                    unsafe_allow_html=True,
                 )
 
-                with st.expander("📚 View sources and evidence", expanded=False):
-                    st.markdown("**Sources:**")
-                    for src in meta["sources"]:
-                        st.markdown(
-                            f"- {src['document_name']} — chunk {src['chunk_index']}"
-                        )
+                for idx, chunk in enumerate(meta["sources"][:5], 1):
+                    similarity_pct = chunk["similarity"] * 100
+                    doc_name = chunk.get("document_name", "Unknown")
+                    chunk_text = chunk["text"][:300]
 
-                    st.markdown("---")
-                    st.markdown("**Retrieved Evidence:**")
-                    for i, src in enumerate(meta["sources"], 1):
-                        st.markdown(f"**Chunk {i}**")
+                    st.markdown(
+                        f"""
+                    <div class="evidence-chunk">
+                        <strong>[{idx}] {doc_name}</strong> 
+                        <span style="color: var(--accent-teal); font-size: 0.85rem;">
+                            (Similarity: {similarity_pct:.1f}%)
+                        </span>
+                        <p style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">
+                            {chunk_text}...
+                        </p>
+                    </div>
+                    """,
+                        unsafe_allow_html=True,
+                    )
 
-                        # Highlight first 1-2 sentences
-                        chunk_text = src["text"][:300]
-                        try:
-                            # Simple sentence detection (split on . ! ?)
-                            sentences = []
-                            current = ""
-                            for char in chunk_text:
-                                current += char
-                                if char in ".!?" and len(current.strip()) > 10:
-                                    sentences.append(current.strip())
-                                    current = ""
-                                    if len(sentences) >= 2:
-                                        break
+        st.markdown("<br>", unsafe_allow_html=True)
 
-                            if sentences:
-                                # Highlight first 1-2 sentences
-                                highlighted = " ".join(sentences)
-                                remaining = chunk_text[len(highlighted) :].strip()
-
-                                # Use HTML with custom classes for selection styling
-                                st.markdown(
-                                    f'<div class="evidence-container"><div class="evidence-text">'
-                                    f'<span class="evidence-highlight">{highlighted}</span>'
-                                    f"{remaining}…"
-                                    f"</div></div>",
-                                    unsafe_allow_html=True,
-                                )
-                            else:
-                                # Fallback: no highlighting
-                                st.markdown(
-                                    f'<div class="evidence-container"><div class="evidence-text">{chunk_text}…</div></div>',
-                                    unsafe_allow_html=True,
-                                )
-                        except:
-                            # Fallback: display normal text
-                            st.markdown(
-                                f'<div class="evidence-container"><div class="evidence-text">{chunk_text}…</div></div>',
-                                unsafe_allow_html=True,
-                            )
-
-                        st.markdown("---")
-
-
-# ------------------------------------------------------------------------------
-# COMPARE MODELS BUTTON
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# MODEL COMPARISON FEATURE
+# ==============================================================================
 if len(st.session_state.messages) > 0:
-    # Get the last user question
+    # Get last user question
     last_user_msg = None
     for msg in reversed(st.session_state.messages):
         if msg["role"] == "user":
             last_user_msg = msg["content"]
             break
 
-    if last_user_msg:
-        st.markdown("---")
-        if st.button("🔄 Compare Models for this Question", use_container_width=True):
+    if last_user_msg and not st.session_state.compare_mode:
+        if st.button("🔄 Compare All Models", use_container_width=True):
             st.session_state.compare_mode = True
             st.rerun()
 
-# Show comparison if requested
+# Show comparison results
 if st.session_state.compare_mode and len(st.session_state.messages) > 0:
-    # Get the last user question
+    # Get last user question
     last_user_msg = None
     for msg in reversed(st.session_state.messages):
         if msg["role"] == "user":
@@ -395,7 +580,7 @@ if st.session_state.compare_mode and len(st.session_state.messages) > 0:
 
     if last_user_msg:
         st.markdown("---")
-        st.markdown("### 🔄 Model Comparison")
+        st.markdown("### 🔄 Multi-Model Comparison")
         st.caption(f"**Question:** {last_user_msg}")
 
         available_models = ["phi", "tinyllama", "gemma:2b"]
@@ -406,7 +591,7 @@ if st.session_state.compare_mode and len(st.session_state.messages) > 0:
         status_text = st.empty()
 
         for i, model_name in enumerate(available_models):
-            status_text.text(f"Running {model_name}...")
+            status_text.text(f"⚙️ Running {model_name}...")
 
             try:
                 result = enhanced_rag_query(
@@ -422,19 +607,16 @@ if st.session_state.compare_mode and len(st.session_state.messages) > 0:
                 sources = result.get("retrieved_chunks", [])
                 confidence = result.get("confidence", 0)
 
-                # Compute quality metrics
+                # Compute metrics
                 relevance = compute_answer_relevance(
                     last_user_msg, answer, st.session_state.model
                 )
-
                 faithfulness = compute_faithfulness(
                     answer, sources, st.session_state.model
                 )
-
                 coverage = compute_context_coverage(
                     answer, sources, st.session_state.model
                 )
-
                 combined_score = (relevance + faithfulness + coverage) / 3
 
                 comparison_results.append(
@@ -477,15 +659,20 @@ if st.session_state.compare_mode and len(st.session_state.messages) > 0:
             is_best = result["model"] == best_model["model"]
 
             with st.expander(
-                f"{'🏆 ' if is_best else ''}**{result['model'].upper()}**{' (Best)' if is_best else ''} - Score: {result['combined_score']:.2f}",
+                f"{'🏆 ' if is_best else ''}**{result['model'].upper()}** - Combined Score: {result['combined_score']:.2f}",
                 expanded=is_best,
             ):
                 # Answer
-                st.markdown("**Answer:**")
-                st.markdown(result["answer"])
+                st.markdown(
+                    f"""
+                <div class="{'comparison-card best-model-glow' if is_best else 'comparison-card'}">
+                    <div class="answer-text">{result['answer']}</div>
+                </div>
+                """,
+                    unsafe_allow_html=True,
+                )
 
-                # Metrics
-                st.markdown("")
+                # Metrics in 4 columns
                 col1, col2, col3, col4 = st.columns(4)
 
                 with col1:
@@ -517,31 +704,28 @@ if st.session_state.compare_mode and len(st.session_state.messages) > 0:
                 with col4:
                     st.metric("Confidence", f"{result['confidence']}%")
 
-                # Sources count
-                st.caption(f"Retrieved {len(result['sources'])} chunks")
+                st.caption(f"📚 Retrieved {len(result['sources'])} chunks")
 
         # Close button
         if st.button("✖ Close Comparison", use_container_width=True):
             st.session_state.compare_mode = False
             st.rerun()
 
-        st.markdown("---")
-
-# ------------------------------------------------------------------------------
-# CHAT INPUT (BOTTOM — SINGLE INPUT)
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# CHAT INPUT (FIXED BOTTOM)
+# ==============================================================================
 query = st.chat_input(
-    "Ask a medical question (e.g. How is severe malaria treated according to WHO?)"
+    "Ask a medical question (e.g., How is severe malaria treated according to WHO?)"
 )
 
 if query and not st.session_state.processing:
-    st.session_state.processing = True  # 🔒 lock
+    st.session_state.processing = True
 
-    # 1️⃣ Store user message
+    # Store user message
     st.session_state.messages.append({"role": "user", "content": query})
 
-    # 2️⃣ Generate answer
-    with st.spinner("Generating answer..."):
+    # Generate answer
+    with st.spinner("🔄 Generating evidence-based answer..."):
         try:
             result = enhanced_rag_query(
                 st.session_state.collection,
@@ -549,26 +733,31 @@ if query and not st.session_state.processing:
                 st.session_state.model,
                 top_k=7,
                 similarity_threshold=0.2,
-                ollama_model=st.session_state.selected_model,  # Use selected model
+                ollama_model=st.session_state.selected_model,
             )
 
-            # Check if answer is valid (not empty, None, or timeout message)
             answer = result.get("answer", "")
 
-            # Detect empty or timeout responses
+            # Check if answer is valid
             is_empty = not answer or answer.strip() == ""
             is_timeout = "took too long to respond" in answer.lower()
+            is_error = "error" in answer.lower() and len(answer) < 100
 
-            if is_empty or is_timeout:
-                # Store error message WITHOUT confidence/sources
+            if is_empty or is_timeout or is_error:
+                # Failed answer
                 st.session_state.messages.append(
                     {
                         "role": "assistant",
-                        "content": "⚠️ The model could not generate an answer within the time limit.",
+                        "content": "⚠️ Unable to generate a complete answer. Please try rephrasing your question or check if the Ollama service is running.",
+                        "meta": {
+                            "confidence": None,
+                            "sources": [],
+                            "user_query": query,
+                        },
                     }
                 )
             else:
-                # Valid answer - store with metadata
+                # Valid answer
                 st.session_state.messages.append(
                     {
                         "role": "assistant",
@@ -576,93 +765,26 @@ if query and not st.session_state.processing:
                         "meta": {
                             "confidence": result.get("confidence", 0),
                             "sources": result.get("retrieved_chunks", []),
-                            "user_query": query,  # Store user query for context-aware suggestions
+                            "user_query": query,
                         },
                     }
                 )
 
-            # Limit conversation memory to last 6 messages
+            # Limit conversation memory
             if len(st.session_state.messages) > 6:
                 st.session_state.messages = st.session_state.messages[-6:]
 
         except Exception as e:
             st.session_state.messages.append(
-                {"role": "assistant", "content": f"⚠️ Error generating answer: {str(e)}"}
+                {
+                    "role": "assistant",
+                    "content": f"⚠️ Error generating answer: {str(e)}",
+                    "meta": {},
+                }
             )
 
-            # Limit conversation memory to last 6 messages
             if len(st.session_state.messages) > 6:
                 st.session_state.messages = st.session_state.messages[-6:]
 
     st.session_state.processing = False
-
-    # 🔥 THIS IS THE KEY FIX
     st.rerun()
-
-
-# ------------------------------------------------------------------------------
-# SIDEBAR
-# ------------------------------------------------------------------------------
-with st.sidebar:
-    # App Identity
-    st.title("🏥 Med-GPT")
-    st.markdown("**Medical RAG Assistant**")
-    st.caption("WHO guideline-based inference")
-
-    st.markdown("---")
-
-    # System Status
-    st.caption("SYSTEM STATUS")
-    st.success("✓ System Online")
-
-    # Model Selection & Inference
-    st.caption("MODEL SELECTION")
-
-    # Model selector dropdown
-    available_models = ["phi", "tinyllama", "gemma:2b"]
-    st.session_state.selected_model = st.selectbox(
-        "Choose Ollama Model",
-        available_models,
-        index=available_models.index(st.session_state.selected_model),
-        help="Select the LLM model for answer generation",
-    )
-
-    st.caption(
-        f"Current: **{st.session_state.selected_model}** • Embeddings: all-MiniLM-L6-v2"
-    )
-
-    # Knowledge Base
-    st.caption("KNOWLEDGE BASE")
-    st.info("📚 WHO Medical Guidelines")
-    st.caption("Semantic search • 7 chunks retrieved")
-
-    st.markdown("---")
-
-    # Session Controls
-    st.caption("SESSION")
-    message_count = len(st.session_state.messages)
-    st.caption(f"Messages: **{message_count}** • Local inference")
-
-    if st.button("🧹 Clear Chat", use_container_width=True):
-        if "confirm_clear" not in st.session_state:
-            st.session_state.confirm_clear = False
-        st.session_state.confirm_clear = True
-
-    if st.session_state.get("confirm_clear", False):
-        st.warning("Clear conversation?")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("✓ Yes", use_container_width=True):
-                st.session_state.messages = []
-                st.session_state.confirm_clear = False
-                st.rerun()
-        with col2:
-            if st.button("✗ No", use_container_width=True):
-                st.session_state.confirm_clear = False
-                st.rerun()
-
-    st.markdown("---")
-
-    # Footer
-    st.caption("⚠️ Educational use only")
-    st.caption("Not a substitute for professional medical advice")
