@@ -11,6 +11,13 @@ Med-GPT RAG System — ChatGPT-Style UI (STABLE)
 import streamlit as st
 from sentence_transformers import SentenceTransformer
 from ingest_documents import initialize_vector_store, enhanced_rag_query
+from ui_metrics import (
+    compute_answer_relevance,
+    compute_faithfulness,
+    compute_context_coverage,
+    get_quality_badge,
+    get_coverage_badge,
+)
 
 # ------------------------------------------------------------------------------
 # PAGE CONFIG (MUST BE FIRST)
@@ -63,6 +70,8 @@ if "initialized" not in st.session_state:
     st.session_state.collection = None
     st.session_state.messages = []
     st.session_state.processing = False  # 🔥 prevents double execution
+    st.session_state.selected_model = "phi"  # Default model
+    st.session_state.compare_mode = False  # Multi-model comparison mode
 
 
 # ------------------------------------------------------------------------------
@@ -243,6 +252,56 @@ for msg in st.session_state.messages:
                 # Show count of retrieved sections
                 num_sources = len(meta["sources"])
 
+                # Answer Quality Metrics (Relevance & Faithfulness & Coverage)
+                if meta.get("user_query") and meta.get("confidence") is not None:
+                    st.markdown("")  # Spacing
+                    st.markdown("**📊 Answer Quality Metrics**")
+
+                    # Compute metrics
+                    relevance = compute_answer_relevance(
+                        meta.get("user_query", ""),
+                        msg["content"],
+                        st.session_state.model,
+                    )
+
+                    faithfulness = compute_faithfulness(
+                        msg["content"], meta["sources"], st.session_state.model
+                    )
+
+                    coverage = compute_context_coverage(
+                        msg["content"], meta["sources"], st.session_state.model
+                    )
+
+                    # Display metrics in 3 columns
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+                        rel_emoji, rel_label, _ = get_quality_badge(relevance)
+                        st.metric(
+                            label="Relevance",
+                            value=f"{relevance:.2f}",
+                            delta=f"{rel_emoji} {rel_label}",
+                        )
+                        st.caption("Question-answer similarity")
+
+                    with col2:
+                        faith_emoji, faith_label, _ = get_quality_badge(faithfulness)
+                        st.metric(
+                            label="Faithfulness",
+                            value=f"{faithfulness:.2f}",
+                            delta=f"{faith_emoji} {faith_label}",
+                        )
+                        st.caption("Answer-context grounding")
+
+                    with col3:
+                        cov_emoji, cov_label, _ = get_coverage_badge(coverage)
+                        st.metric(
+                            label="Coverage",
+                            value=f"{coverage:.2f}",
+                            delta=f"{cov_emoji} {cov_label}",
+                        )
+                        st.caption("Chunks used in answer")
+
                 # "Why this answer?" explanation
                 st.markdown("")  # Spacing
                 st.info(
@@ -309,6 +368,166 @@ for msg in st.session_state.messages:
 
 
 # ------------------------------------------------------------------------------
+# COMPARE MODELS BUTTON
+# ------------------------------------------------------------------------------
+if len(st.session_state.messages) > 0:
+    # Get the last user question
+    last_user_msg = None
+    for msg in reversed(st.session_state.messages):
+        if msg["role"] == "user":
+            last_user_msg = msg["content"]
+            break
+
+    if last_user_msg:
+        st.markdown("---")
+        if st.button("🔄 Compare Models for this Question", use_container_width=True):
+            st.session_state.compare_mode = True
+            st.rerun()
+
+# Show comparison if requested
+if st.session_state.compare_mode and len(st.session_state.messages) > 0:
+    # Get the last user question
+    last_user_msg = None
+    for msg in reversed(st.session_state.messages):
+        if msg["role"] == "user":
+            last_user_msg = msg["content"]
+            break
+
+    if last_user_msg:
+        st.markdown("---")
+        st.markdown("### 🔄 Model Comparison")
+        st.caption(f"**Question:** {last_user_msg}")
+
+        available_models = ["phi", "tinyllama", "gemma:2b"]
+        comparison_results = []
+
+        # Run all models sequentially
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        for i, model_name in enumerate(available_models):
+            status_text.text(f"Running {model_name}...")
+
+            try:
+                result = enhanced_rag_query(
+                    st.session_state.collection,
+                    last_user_msg,
+                    st.session_state.model,
+                    top_k=7,
+                    similarity_threshold=0.2,
+                    ollama_model=model_name,
+                )
+
+                answer = result.get("answer", "")
+                sources = result.get("retrieved_chunks", [])
+                confidence = result.get("confidence", 0)
+
+                # Compute quality metrics
+                relevance = compute_answer_relevance(
+                    last_user_msg, answer, st.session_state.model
+                )
+
+                faithfulness = compute_faithfulness(
+                    answer, sources, st.session_state.model
+                )
+
+                coverage = compute_context_coverage(
+                    answer, sources, st.session_state.model
+                )
+
+                combined_score = (relevance + faithfulness + coverage) / 3
+
+                comparison_results.append(
+                    {
+                        "model": model_name,
+                        "answer": answer,
+                        "confidence": confidence,
+                        "relevance": relevance,
+                        "faithfulness": faithfulness,
+                        "coverage": coverage,
+                        "combined_score": combined_score,
+                        "sources": sources,
+                    }
+                )
+
+            except Exception as e:
+                comparison_results.append(
+                    {
+                        "model": model_name,
+                        "answer": f"Error: {str(e)}",
+                        "confidence": 0,
+                        "relevance": 0,
+                        "faithfulness": 0,
+                        "coverage": 0,
+                        "combined_score": 0,
+                        "sources": [],
+                    }
+                )
+
+            progress_bar.progress((i + 1) / len(available_models))
+
+        status_text.empty()
+        progress_bar.empty()
+
+        # Find best model
+        best_model = max(comparison_results, key=lambda x: x["combined_score"])
+
+        # Display results
+        for result in comparison_results:
+            is_best = result["model"] == best_model["model"]
+
+            with st.expander(
+                f"{'🏆 ' if is_best else ''}**{result['model'].upper()}**{' (Best)' if is_best else ''} - Score: {result['combined_score']:.2f}",
+                expanded=is_best,
+            ):
+                # Answer
+                st.markdown("**Answer:**")
+                st.markdown(result["answer"])
+
+                # Metrics
+                st.markdown("")
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+                    rel_emoji, rel_label, _ = get_quality_badge(result["relevance"])
+                    st.metric(
+                        "Relevance",
+                        f"{result['relevance']:.2f}",
+                        f"{rel_emoji} {rel_label}",
+                    )
+
+                with col2:
+                    faith_emoji, faith_label, _ = get_quality_badge(
+                        result["faithfulness"]
+                    )
+                    st.metric(
+                        "Faithfulness",
+                        f"{result['faithfulness']:.2f}",
+                        f"{faith_emoji} {faith_label}",
+                    )
+
+                with col3:
+                    cov_emoji, cov_label, _ = get_coverage_badge(result["coverage"])
+                    st.metric(
+                        "Coverage",
+                        f"{result['coverage']:.2f}",
+                        f"{cov_emoji} {cov_label}",
+                    )
+
+                with col4:
+                    st.metric("Confidence", f"{result['confidence']}%")
+
+                # Sources count
+                st.caption(f"Retrieved {len(result['sources'])} chunks")
+
+        # Close button
+        if st.button("✖ Close Comparison", use_container_width=True):
+            st.session_state.compare_mode = False
+            st.rerun()
+
+        st.markdown("---")
+
+# ------------------------------------------------------------------------------
 # CHAT INPUT (BOTTOM — SINGLE INPUT)
 # ------------------------------------------------------------------------------
 query = st.chat_input(
@@ -330,6 +549,7 @@ if query and not st.session_state.processing:
                 st.session_state.model,
                 top_k=7,
                 similarity_threshold=0.2,
+                ollama_model=st.session_state.selected_model,  # Use selected model
             )
 
             # Check if answer is valid (not empty, None, or timeout message)
@@ -395,10 +615,21 @@ with st.sidebar:
     st.caption("SYSTEM STATUS")
     st.success("✓ System Online")
 
-    # Model & Inference
-    st.caption("MODEL & INFERENCE")
-    st.info("🧠 Phi (Local)")
-    st.caption("Embeddings: all-MiniLM-L6-v2 • Offline mode")
+    # Model Selection & Inference
+    st.caption("MODEL SELECTION")
+
+    # Model selector dropdown
+    available_models = ["phi", "tinyllama", "gemma:2b"]
+    st.session_state.selected_model = st.selectbox(
+        "Choose Ollama Model",
+        available_models,
+        index=available_models.index(st.session_state.selected_model),
+        help="Select the LLM model for answer generation",
+    )
+
+    st.caption(
+        f"Current: **{st.session_state.selected_model}** • Embeddings: all-MiniLM-L6-v2"
+    )
 
     # Knowledge Base
     st.caption("KNOWLEDGE BASE")

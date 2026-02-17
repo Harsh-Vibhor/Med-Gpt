@@ -123,7 +123,9 @@ def ingest_documents(docs_folder="data/docs"):
 # ===============================
 
 
-def call_ollama(prompt, model="tinyllama", ollama_url="http://localhost:11434/api/generate"):
+def call_ollama(
+    prompt, model="tinyllama", ollama_url="http://localhost:11434/api/generate"
+):
     """
     Call Ollama API with timeout protection and hard generation limits.
     Returns graceful error message if timeout occurs.
@@ -155,10 +157,20 @@ def call_ollama(prompt, model="tinyllama", ollama_url="http://localhost:11434/ap
 # ===============================
 
 
-def enhanced_rag_query(collection, query, model, top_k=7, similarity_threshold=0.05):
+def enhanced_rag_query(
+    collection, query, model, top_k=7, similarity_threshold=0.05, ollama_model="phi"
+):
     """
     Streamlit-safe RAG query with similarity filtering,
     deterministic context construction, and confidence scoring.
+
+    Args:
+        collection: ChromaDB collection
+        query: User question
+        model: SentenceTransformer model for embeddings
+        top_k: Number of chunks to retrieve
+        similarity_threshold: Minimum similarity threshold
+        ollama_model: Ollama model name (phi, tinyllama, gemma:2b, etc.)
     """
 
     # 1. Encode query
@@ -196,7 +208,7 @@ Question:
 
 Answer briefly (3-5 lines):
 """
-        answer = call_ollama(prompt, model="tinyllama")
+        answer = call_ollama(prompt, model=ollama_model)
 
         return {
             "answer": answer.strip(),
@@ -230,7 +242,7 @@ Instructions:
 
 Answer:
 """
-    answer = call_ollama(prompt, model="phi").strip()
+    answer = call_ollama(prompt, model=ollama_model).strip()
 
     # ------------------------------------------------------------------
     # 5️⃣ CONFIDENCE + SAFETY LOGIC
